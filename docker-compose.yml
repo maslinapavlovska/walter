@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  walter-bot:
+    build: .
+    container_name: walter-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      # Persist logs outside container
+      - ./logs:/app/logs
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - walter-network
+
+networks:
+  walter-network:
+    driver: bridge

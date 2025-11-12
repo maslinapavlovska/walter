@@ -1,0 +1,43 @@
+# Environment variables
+.env
+.env.local
+.env.production
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+venv/
+env/
+ENV/
+.venv
+
+# Logs
+*.log
+logs/
+walter.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# PM2
+ecosystem.config.js
+
+# Backup files
+*.bak
+*.backup
+
+# Test and debug files
+test_*.py
+*_debug.html
+*_debug.png
+iframe_*.html
