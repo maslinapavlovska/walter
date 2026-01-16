@@ -10,6 +10,7 @@ import logging
 from services.ai_service import AIService
 from services.history_api import HistoryAPI
 from services.water_stops_service import WaterStopsService
+from services.electricity_stops_service import ElectricityStopsService
 
 # Load environment variables
 load_dotenv()
@@ -41,6 +42,7 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 ai_service = AIService()
 history_api = HistoryAPI()
 water_stops_service = WaterStopsService()
+electricity_stops_service = ElectricityStopsService()
 
 # Initialize scheduler
 scheduler = AsyncIOScheduler()
@@ -104,6 +106,31 @@ async def send_daily_history():
             logger.error(f"Error sending water stops in daily update: {water_error}", exc_info=True)
             # Don't fail the whole task if water stops fails
             await channel.send("_Apologies, couldn't fetch water stop information this morning. Do check manually._")
+
+        # Fetch and send electricity stops information
+        logger.info("Fetching electricity stops for daily update")
+        try:
+            electricity_stops = await electricity_stops_service.get_electricity_stops()
+
+            if electricity_stops:
+                messages = electricity_stops_service.format_electricity_stops_message(electricity_stops)
+                # Handle both single message and list of messages
+                if isinstance(messages, list):
+                    for msg in messages:
+                        await channel.send(msg)
+                else:
+                    await channel.send(messages)
+                logger.info(f"Daily electricity stops update sent - {len(electricity_stops)} stops")
+            else:
+                # Send "all clear" message
+                message = electricity_stops_service.format_no_stops_message()
+                await channel.send(message)
+                logger.info("Daily electricity stops update sent - no stops")
+
+        except Exception as electricity_error:
+            logger.error(f"Error sending electricity stops in daily update: {electricity_error}", exc_info=True)
+            # Don't fail the whole task if electricity stops fails
+            await channel.send("_Apologies, couldn't fetch electricity outage information this morning. Do check manually._")
 
     except Exception as e:
         logger.error(f"Error in daily history task: {e}", exc_info=True)
@@ -177,6 +204,32 @@ async def check_water(ctx):
         logger.error(f"Error checking water stops: {e}", exc_info=True)
         await ctx.send("❌ Sorry, encountered an error while checking water stops. Please try again later.")
 
+@bot.command(name='check_power')
+async def check_power(ctx):
+    """Check for current electricity outage announcements"""
+    await ctx.send("Checking for electricity outages... (this may take a moment)")
+
+    try:
+        stops = await electricity_stops_service.get_electricity_stops()
+
+        if stops:
+            messages = electricity_stops_service.format_electricity_stops_message(stops)
+            # Handle both single message and list of messages
+            if isinstance(messages, list):
+                for msg in messages:
+                    await ctx.send(msg)
+            else:
+                await ctx.send(messages)
+        else:
+            message = electricity_stops_service.format_no_stops_message()
+            await ctx.send(message)
+
+        logger.info(f"Electricity stops check completed - found {len(stops)} stops")
+
+    except Exception as e:
+        logger.error(f"Error checking electricity stops: {e}", exc_info=True)
+        await ctx.send("Sorry, encountered an error while checking electricity outages. Please try again later.")
+
 @bot.command(name='walter_status')
 async def status(ctx):
     """Check Walter's status"""
@@ -186,8 +239,9 @@ async def status(ctx):
     )
     embed.add_field(name="Status", value="🟢 Online", inline=True)
     embed.add_field(name="Guilds", value=len(bot.guilds), inline=True)
-    embed.add_field(name="Scheduler", value="✅ Running" if scheduler.running else "❌ Stopped", inline=True)
-    embed.add_field(name="Water Stops", value="✅ Enabled", inline=True)
+    embed.add_field(name="Scheduler", value="Running" if scheduler.running else "Stopped", inline=True)
+    embed.add_field(name="Water Stops", value="Enabled", inline=True)
+    embed.add_field(name="Electricity Stops", value="Enabled", inline=True)
 
     job = scheduler.get_job('daily_history')
     if job:
